@@ -1,4 +1,4 @@
-![Architecture Diagram](assets/serverlessWebApp.drawio.svg)
+![Repo Views](https://komarev.com/ghpvc/?username=grandeemir&color=blue)
 
 # 🔐 Zero-Trust Serverless Web Application: Secure File Vault
 ### Secure, Encrypted & Self-Healing Cloud Architecture
@@ -12,6 +12,8 @@ The architecture focuses heavily on API security, identity-based access control,
 By adopting a **defense-in-depth strategy**, this architecture assumes that breaches are inevitable and implements strict controls at every layer—from the user interface delivery to the backend data storage.
 
 ---
+
+![Architecture Diagram](assets/serverlessWebApp.drawio.svg)
 
 ## 🛡️ Security Architecture & Components
 
@@ -104,5 +106,9 @@ zero-trust-serverless-application/
 
 This project serves as a comprehensive reference architecture for building secure, scalable, and resilient modern web applications. By seamlessly integrating front-end delivery, back-end compute, identity management, and automated security monitoring, it demonstrates the practical implementation of Zero-Trust principles in a fully serverless AWS environment.
 
+<div align="center">
+
   ## 💰 You can help me by Donating
   [![BuyMeACoffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/grandeemir) [![Ko-Fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/grandeemir) 
+
+  <div/>
