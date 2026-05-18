@@ -1,12 +1,12 @@
 module "s3" {
-  source = "../../modules/S3&CDN"
-  tags   = local.common_tags
+  source      = "../../modules/S3&CDN"
+  tags        = local.common_tags
   bucket_name = "secure-file-vaulth-app-bucket"
 }
 
 module "cognito" {
-  source = "../../modules/cognito"
-  tags = local.common_tags
+  source       = "../../modules/cognito"
+  tags         = local.common_tags
   callback_url = "https://${module.s3.cloudfront_domain_name}/vault.html"
 }
 
@@ -20,3 +20,19 @@ resource "aws_s3_object" "config_js" {
   })
   content_type = "application/javascript"
 }
+
+module "lambda" {
+  source = "../../modules/lambda"
+  tags   = local.common_tags
+}
+
+module "api_gw" {
+  source               = "../../modules/api_gw"
+  tags                 = local.common_tags
+  cognito_client_id    = module.cognito.user_pool_client_id
+  cognito_user_pool_id = module.cognito.user_pool_id
+  aws_region           = var.aws_region
+  lambda_function_arn  = module.lambda.function.arn
+  lambda_function_name = module.lambda.function_name
+}
+
