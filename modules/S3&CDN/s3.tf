@@ -47,6 +47,18 @@ resource "aws_s3_object" "website_files" {
   }, split(".", each.value)[length(split(".", each.value)) - 1], "binary/octet-stream")
 }
 
+resource "aws_s3_object" "config_js" {
+  bucket = aws_s3_bucket.website_bucket.id
+  key    = "config.js"
+  content = templatefile("../../scripts/website/config.js", {
+    user_pool_id        = var.cognito_user_pool_id
+    user_pool_client_id = var.cognito_client_id
+    cognito_domain      = var.cognito_domain
+    api_endpoint        = var.api_endpoint
+  })
+  content_type = "application/javascript"
+}
+
 resource "aws_s3_bucket_public_access_block" "allow" {
   bucket                  = aws_s3_bucket.website_bucket.id
   block_public_acls       = true
@@ -104,6 +116,8 @@ resource "aws_cloudfront_distribution" "cnd_with_waf" {
     cloudfront_default_certificate = true
   }
 
+  web_acl_id = var.web_acl_id
+
   tags = var.tags
 }
 
@@ -130,3 +144,4 @@ data "aws_iam_policy_document" "cloudfront_oac_policy" {
     }
   }
 }
+

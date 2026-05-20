@@ -9,7 +9,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     let userPool = null;
-    if (typeof AmazonCognitoIdentity !== 'undefined' && appConfig.cognito.userPoolId !== 'REGION_USER_POOL_ID') {
+    const isConfigured = appConfig.cognito.userPoolId && 
+                         !appConfig.cognito.userPoolId.includes('${') && 
+                         !appConfig.cognito.userPoolId.includes('REGION_');
+
+    if (typeof AmazonCognitoIdentity !== 'undefined' && isConfigured) {
         userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
         const currentUser = userPool.getCurrentUser();
         if (currentUser != null) {

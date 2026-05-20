@@ -32,10 +32,46 @@ resource "aws_apigatewayv2_stage" "default_stage" {
   auto_deploy = true
 }
 
-# 4. Protected Route matching Step 5 in your diagram
-resource "aws_apigatewayv2_route" "protected_route" {
+# 4. Protected Routes for File Vault
+resource "aws_apigatewayv2_route" "list_files" {
   api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /create-todo"
+  route_key = "GET /files"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_auth.id
+  target             = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "upload_url" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /files/upload-url"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_auth.id
+  target             = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "record_metadata" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /files"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_auth.id
+  target             = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "download_url" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /files/{id}/download-url"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_auth.id
+  target             = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "delete_file" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "DELETE /files/{id}"
 
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_auth.id

@@ -10,7 +10,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     let userPool = null;
-    if (typeof AmazonCognitoIdentity !== 'undefined' && appConfig.cognito.userPoolId !== 'REGION_USER_POOL_ID') {
+    const isConfigured = appConfig.cognito.userPoolId && 
+                         !appConfig.cognito.userPoolId.includes('${') && 
+                         !appConfig.cognito.userPoolId.includes('REGION_');
+
+    if (typeof AmazonCognitoIdentity !== 'undefined' && isConfigured) {
         userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
     }
 
@@ -66,11 +70,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Logout
     logoutBtn.addEventListener('click', () => {
-        if (cognitoUser) {
-            cognitoUser.signOut();
+        // 1. Clear Cognito SDK session
+        if (userPool) {
+            const user = userPool.getCurrentUser();
+            if (user) {
+                user.signOut();
+            }
         }
-        sessionStorage.removeItem('mockUser');
-        window.location.href = 'index.html';
+
+        // 2. Clear all local and session storage
+        sessionStorage.clear();
+        localStorage.clear();
+        
+        // 3. Handle Cognito Hosted UI Logout if configured
+        if (appConfig.cognito.domain && 
+            !appConfig.cognito.domain.includes('${') && 
+            !appConfig.cognito.domain.includes('REGION_')) {
+            
+            const clientId = appConfig.cognito.userPoolClientId;
+            // Use current origin for logout URI
+            const logoutUri = encodeURIComponent(`${window.location.origin}/index.html`);
+            const cognitoLogoutUrl = `https://${appConfig.cognito.domain}/logout?client_id=${clientId}&logout_uri=${logoutUri}`;
+            
+            window.location.href = cognitoLogoutUrl;
+        } else {
+            // Default redirect for local/mock development
+            window.location.href = 'index.html';
+        }
     });
 
     // File Selection
@@ -128,6 +154,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function getAuthToken() {
+        if (authSession && authSession.isValid()) {
+            return authSession.getIdToken().getJwtToken();
+        }
         return sessionStorage.getItem('idToken') || '';
     }
 
@@ -285,10 +314,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const k = 1024;
         const dm = decimals < 0 ? 0 : decimals;
         const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-    }
-});ytes', 'KB', 'MB', 'GB', 'TB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
     }

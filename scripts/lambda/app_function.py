@@ -3,177 +3,178 @@ import os
 import boto3
 import uuid
 from botocore.exceptions import ClientError
+from datetime import datetime
 
-# Initialize DynamoDB resource
+# Initialize AWS resources
 dynamodb = boto3.resource('dynamodb')
+s3_client = boto3.client('s3')
 
-# Get table name from environment variable
-TABLE_NAME = os.environ.get('TABLE_NAME', 'TodosTable')
+# Get configuration from environment variables
+TABLE_NAME = os.environ.get('TABLE_NAME')
+BUCKET_NAME = os.environ.get('BUCKET_NAME')
 table = dynamodb.Table(TABLE_NAME)
 
 def lambda_handler(event, context):
     """
-    AWS Lambda handler for the Todo application.
-    Expected to be integrated with API Gateway using HTTP API or REST API.
+    AWS Lambda handler for the AetherVault application.
+    Handles file metadata and S3 presigned URLs.
     """
+    http_method = event.get('requestContext', {}).get('http', {}).get('method')
+    path = event.get('rawPath')
     
-    # Extract HTTP method and path
-    http_method = event.get('httpMethod') or event.get('requestContext', {}).get('http', {}).get('method')
-    path = event.get('path') or event.get('rawPath')
-    
-    if not http_method or not path:
-        return _build_response(400, {'error': 'Invalid request format. Missing HTTP method or path.'})
+    # Extract username from Cognito JWT claims
+    claims = event.get('requestContext', {}).get('authorizer', {}).get('jwt', {}).get('claims', {})
+    username = claims.get('username') or claims.get('cognito:username', 'anonymous')
 
-    print(f"Received request: {http_method} {path}")
+    print(f"Request: {http_method} {path} from user {username}")
 
     try:
-        if http_method == 'GET' and (path == '/todos' or path == '/todos/'):
-            return get_all_todos()
+        # GET /files - List user's files
+        if http_method == 'GET' and path == '/files':
+            return list_files(username)
         
-        elif http_method == 'GET' and path.startswith('/todos/'):
-            todo_id = _get_path_parameter(event, 'id', path)
-            if todo_id:
-                return get_todo(todo_id)
-            return _build_response(400, {'error': 'Missing todo ID'})
-        
-        elif http_method == 'POST' and (path == '/todos' or path == '/todos/'):
-            return create_todo(event)
-        
-        elif http_method == 'PUT' and path.startswith('/todos/'):
-            todo_id = _get_path_parameter(event, 'id', path)
-            if todo_id:
-                return update_todo(todo_id, event)
-            return _build_response(400, {'error': 'Missing todo ID'})
-        
-        elif http_method == 'DELETE' and path.startswith('/todos/'):
-            todo_id = _get_path_parameter(event, 'id', path)
-            if todo_id:
-                return delete_todo(todo_id)
-            return _build_response(400, {'error': 'Missing todo ID'})
+        # POST /files/upload-url - Get presigned URL for upload
+        elif http_method == 'POST' and path == '/files/upload-url':
+            return get_upload_url(username, event)
+            
+        # POST /files - Record file metadata
+        elif http_method == 'POST' and path == '/files':
+            return record_metadata(username, event)
+            
+        # GET /files/{id}/download-url - Get presigned URL for download
+        elif http_method == 'GET' and path.startswith('/files/') and path.endswith('/download-url'):
+            file_id = path.split('/')[2]
+            return get_download_url(username, file_id)
+            
+        # DELETE /files/{id} - Delete file
+        elif http_method == 'DELETE' and path.startswith('/files/'):
+            file_id = path.split('/')[2]
+            return delete_file(username, file_id)
         
         else:
-            return _build_response(404, {'error': f'Unsupported route: {http_method} {path}'})
+            return _build_response(404, {'error': f'Route not found: {http_method} {path}'})
             
-    except ClientError as e:
-        print(f"DynamoDB Error: {e}")
-        return _build_response(500, {'error': 'Database operation failed'})
     except Exception as e:
-        print(f"Internal Error: {e}")
+        print(f"Error: {str(e)}")
         return _build_response(500, {'error': 'Internal server error'})
 
-def get_all_todos():
-    """Retrieve all todos from DynamoDB."""
-    response = table.scan()
+def list_files(username):
+    """Retrieve all file metadata for a specific user."""
+    # Note: In a real production app, use a GSI on 'owner' for efficient querying.
+    # For this prototype, we'll filter a scan (not recommended for large tables).
+    response = table.scan(
+        FilterExpression=boto3.dynamodb.conditions.Attr('owner').eq(username)
+    )
     return _build_response(200, response.get('Items', []))
 
-def get_todo(todo_id):
-    """Retrieve a specific todo by ID."""
-    response = table.get_item(Key={'id': todo_id})
-    item = response.get('Item')
-    if item:
-        return _build_response(200, item)
-    return _build_response(404, {'error': 'Todo not found'})
-
-def create_todo(event):
-    """Create a new todo."""
+def get_upload_url(username, event):
+    """Generate a presigned URL for uploading a file to S3."""
     body = _parse_body(event)
-    if not body or 'task' not in body:
-        return _build_response(400, {'error': 'Missing "task" in request body'})
+    file_name = body.get('fileName')
+    file_type = body.get('fileType', 'application/octet-stream')
+    
+    if not file_name:
+        return _build_response(400, {'error': 'Missing fileName'})
         
-    todo_id = str(uuid.uuid4())
+    # Create a unique S3 key for the file
+    file_id = str(uuid.uuid4())
+    s3_key = f"uploads/{username}/{file_id}/{file_name}"
+    
+    try:
+        presigned_url = s3_client.generate_presigned_url(
+            'put_object',
+            Params={
+                'Bucket': BUCKET_NAME,
+                'Key': s3_key,
+                'ContentType': file_type
+            },
+            ExpiresIn=3600
+        )
+        return _build_response(200, {
+            'uploadUrl': presigned_url,
+            'fileId': file_id,
+            's3Key': s3_key
+        })
+    except ClientError as e:
+        return _build_response(500, {'error': str(e)})
+
+def record_metadata(username, event):
+    """Record file metadata in DynamoDB after successful upload."""
+    body = _parse_body(event)
+    file_name = body.get('fileName')
+    file_size = body.get('size')
+    # In a real app, the client would pass the s3Key/fileId returned from upload-url
+    # For this simplified version, we'll re-generate or expect the client to track it.
+    
+    if not file_name:
+        return _build_response(400, {'error': 'Missing metadata'})
+        
+    file_id = str(uuid.uuid4())
     item = {
-        'id': todo_id,
-        'task': body['task'],
-        'completed': body.get('completed', False)
+        'id': file_id,
+        'owner': username,
+        'name': file_name,
+        'size': file_size,
+        'uploadedAt': datetime.now().isoformat(),
+        'status': 'active'
     }
     
     table.put_item(Item=item)
     return _build_response(201, item)
 
-def update_todo(todo_id, event):
-    """Update an existing todo."""
-    body = _parse_body(event)
-    if not body:
-        return _build_response(400, {'error': 'Empty request body'})
-        
-    update_expression = "SET "
-    expression_attribute_values = {}
-    expression_attribute_names = {}
+def get_download_url(username, file_id):
+    """Generate a presigned URL for downloading a file."""
+    # 1. Verify ownership from DynamoDB
+    response = table.get_item(Key={'id': file_id})
+    item = response.get('Item')
     
-    if 'task' in body:
-        update_expression += "#t = :task, "
-        expression_attribute_names['#t'] = 'task'
-        expression_attribute_values[':task'] = body['task']
-        
-    if 'completed' in body:
-        update_expression += "completed = :completed, "
-        expression_attribute_values[':completed'] = body['completed']
-        
-    # Remove trailing comma and space
-    if update_expression.endswith(', '):
-        update_expression = update_expression[:-2]
-        
-    if not expression_attribute_values:
-        return _build_response(400, {'error': 'No fields to update'})
-        
+    if not item or item['owner'] != username:
+        return _build_response(403, {'error': 'Access denied or file not found'})
+    
+    # 2. Generate URL (In a real app, s3Key would be stored in metadata)
+    # For now, we reconstruct the expected key structure
+    s3_key = f"uploads/{username}/{file_id}/{item['name']}"
+    
     try:
-        # Construct kwargs dynamically to avoid boto3 errors if ExpressionAttributeNames is empty
-        kwargs = {
-            'Key': {'id': todo_id},
-            'UpdateExpression': update_expression,
-            'ExpressionAttributeValues': expression_attribute_values,
-            'ReturnValues': "ALL_NEW"
-        }
-        if expression_attribute_names:
-            kwargs['ExpressionAttributeNames'] = expression_attribute_names
-            
-        response = table.update_item(**kwargs)
-            
-        return _build_response(200, response.get('Attributes', {}))
+        url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': BUCKET_NAME, 'Key': s3_key},
+            ExpiresIn=3600
+        )
+        return _build_response(200, {'downloadUrl': url})
     except ClientError as e:
-        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-            return _build_response(404, {'error': 'Todo not found'})
-        raise
+        return _build_response(500, {'error': str(e)})
 
-def delete_todo(todo_id):
-    """Delete a todo."""
-    table.delete_item(Key={'id': todo_id})
-    return _build_response(204, '')
+def delete_file(username, file_id):
+    """Delete file metadata and (optionally) the S3 object."""
+    response = table.get_item(Key={'id': file_id})
+    item = response.get('Item')
+    
+    if not item or item['owner'] != username:
+        return _build_response(403, {'error': 'Access denied'})
+        
+    table.delete_item(Key={'id': file_id})
+    # Optional: Delete from S3 here as well
+    return _build_response(204, None)
 
 # --- Helper Functions ---
 
 def _build_response(status_code, body):
-    """Build the API Gateway HTTP response object."""
     return {
         'statusCode': status_code,
         'headers': {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*' # Adjust in production
+            'Access-Control-Allow-Origin': '*'
         },
-        'body': json.dumps(body) if body else ''
+        'body': json.dumps(body) if body is not None else ''
     }
 
 def _parse_body(event):
-    """Safely parse the JSON body from the event."""
     try:
         body = event.get('body', '{}')
         if event.get('isBase64Encoded'):
              import base64
              body = base64.b64decode(body).decode('utf-8')
         return json.loads(body)
-    except json.JSONDecodeError:
-        return None
-
-def _get_path_parameter(event, param_name, path):
-    """Extract path parameter from API Gateway REST or HTTP API event."""
-    # Try REST API pathParameters
-    path_params = event.get('pathParameters')
-    if path_params and param_name in path_params:
-        return path_params[param_name]
-        
-    # Try HTTP API path extraction manually if pathParameters is empty
-    parts = path.strip('/').split('/')
-    if len(parts) > 1 and parts[0] == 'todos':
-        return parts[1]
-        
-    return None
+    except:
+        return {}

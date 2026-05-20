@@ -10,7 +10,7 @@ const appConfig = {
     },
     // API Gateway configuration
     api: {
-        baseUrl: 'https://YOUR_API_GATEWAY_ID.execute-api.us-east-1.amazonaws.com/prod'
+        baseUrl: '${api_endpoint}'
     }
 };
 
