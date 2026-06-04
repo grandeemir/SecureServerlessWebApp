@@ -1,7 +1,7 @@
 > **⚠️ Project Status: Under Development**  
 
 <div align="center">
-  <img src="assets/serverlessWebApp.svg" alt="Architecture Diagram" width="800">
+  <img src="assets/serverlessWebApp_2.drawio.svg" alt="Architecture Diagram" width="800">
 </div>
 
 <h1 align="center">🔐 Zero-Trust Serverless Web Application: Secure File Vault</h1>
