@@ -44,7 +44,7 @@ resource "aws_iam_role_policy" "app_access" {
           "s3:DeleteObject",
           "s3:ListBucket"
         ]
-        Effect   = "Allow"
+        Effect = "Allow"
         Resource = [
           var.storage_bucket_arn,
           "${var.storage_bucket_arn}/*"
@@ -77,7 +77,7 @@ resource "aws_lambda_function" "example" {
   role          = aws_iam_role.example.arn
   handler       = "app_function.lambda_handler"
   code_sha256   = data.archive_file.example.output_base64sha256
-  
+
   runtime = "python3.12"
 
   environment {

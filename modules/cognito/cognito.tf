@@ -15,8 +15,8 @@ resource "aws_cognito_user_pool" "user_pool" {
   schema {
     name                = "email"
     attribute_data_type = "String"
-    required            = true  # <--- This forces it on the sign-up form
-    mutable             = true  # Allows users to change their email later if needed
+    required            = true # <--- This forces it on the sign-up form
+    mutable             = true # Allows users to change their email later if needed
 
     string_attribute_constraints {
       min_length = 0
@@ -25,7 +25,7 @@ resource "aws_cognito_user_pool" "user_pool" {
   }
 
   email_configuration {
-    email_sending_account = "COGNITO_DEFAULT" 
+    email_sending_account = "COGNITO_DEFAULT"
   }
 
   # alias_attributes         = ["email"]
