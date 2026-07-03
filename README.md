@@ -1,4 +1,4 @@
-> **⚠️ Project Status: Under Development**  
+> **⚠️ Project Status: Under Development **  
 
 <div align="center">
   <img src="assets/serverlessWebApp_2.drawio.svg" alt="Architecture Diagram" width="800">
