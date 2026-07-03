@@ -51,6 +51,11 @@ jobs:
         run: |
           cd ${{ env.WORKING_DIR }}
           terraform validate
+      
+      - name: Run tfsec (Security Scan)
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working_directory: ${{ env.WORKING_DIR }}
 
       - name: Terraform Plan
         run: |

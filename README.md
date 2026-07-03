@@ -1,10 +1,10 @@
 > **⚠️ Project Status: Under Development **  
 
 <div align="center">
-  <img src="assets/serverlessWebApp_2.drawio.svg" alt="Architecture Diagram" width="800">
+  <img src="assets/serverlessWebApp_2.drawio2.svg" alt="Architecture Diagram" width="800">
 </div>
 
-<h1 align="center">🔐 Zero-Trust Serverless Web Application: Secure File Vault</h1>
+<h1 align="center">🔐 Secure Serverless Web Application: Secure File Vault</h1>
 
 <div align="center">
   <h3>Secure, Encrypted & Self-Healing Cloud Architecture</h3>
