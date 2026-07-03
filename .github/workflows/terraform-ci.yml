@@ -15,7 +15,7 @@ permissions:
 
 env:
   TF_VERSION: "1.8.5"
-  WORKING_DIR: "environments/dev"
+  WORKING_DIR: "environments/DEV"
   AWS_REGION: "us-east-1"
 
 jobs:
@@ -24,7 +24,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Kök dizinde sorunsuz çalışması için working-directory bağımlılığı yok
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -33,26 +32,27 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      # OIDC bağlantısı kök dizinden bağımsız çalışır
       - name: Configure AWS Credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::653853166958:role/github-actions-terraform-role
           aws-region: ${{ env.AWS_REGION }}
 
-      # 2. Tüm depodaki kod biçimlendirmesini kontrol etmek için kök dizinde çalışır
       - name: Terraform Format
         run: terraform fmt -check -recursive
 
-      # 3. Altyapı komutları sadece ilgili environment klasöründe çalışır
+      # Klasör geçişlerini doğrudan bash komutu içinde 'cd' ile yapıyoruz
       - name: Terraform Init
-        working-directory: ${{ env.WORKING_DIR }}
-        run: terraform init -input=false
+        run: |
+          cd ${{ env.WORKING_DIR }}
+          terraform init -input=false
 
       - name: Terraform Validate
-        working-directory: ${{ env.WORKING_DIR }}
-        run: terraform validate
+        run: |
+          cd ${{ env.WORKING_DIR }}
+          terraform validate
 
       - name: Terraform Plan
-        working-directory: ${{ env.WORKING_DIR }}
-        run: terraform plan -input=false
+        run: |
+          cd ${{ env.WORKING_DIR }}
+          terraform plan -input=false
